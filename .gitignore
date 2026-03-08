@@ -1,0 +1,17 @@
+# Node
+node_modules/
+
+# Env
+.env
+*.env
+!.env.example
+
+# Logs
+npm-debug.log*
+
+# Supabase local temp
+supabase/.temp/
+
+# OS
+.DS_Store
+Thumbs.db
