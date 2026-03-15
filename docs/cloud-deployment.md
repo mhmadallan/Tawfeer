@@ -2,7 +2,7 @@
 
 This project is configured for:
 - Backend on Render
-- Frontend on Vercel
+- Frontend on GitHub Pages
 - Database and file storage on Supabase
 
 ## 1) Supabase (database + storage)
@@ -19,7 +19,7 @@ This project is configured for:
 1. Connect your GitHub repository to Render.
 2. Create a Blueprint deploy from `render.yaml` in repo root.
 3. Set these environment variables in Render service:
-   - `FRONTEND_ORIGIN` (your frontend URL, e.g. `https://your-app.vercel.app`)
+   - `FRONTEND_ORIGIN` (your frontend URL, e.g. `https://<github-username>.github.io/<repository-name>`)
    - `SUPABASE_URL`
    - `SUPABASE_SERVICE_ROLE_KEY`
    - `OPENAI_API_KEY`
@@ -29,13 +29,15 @@ This project is configured for:
 4. Deploy and copy your backend URL, for example:
    - `https://tawfeer-backend.onrender.com`
 
-## 3) Deploy Frontend to Vercel
+## 3) Deploy Frontend to GitHub Pages
 
-1. Import the `frontend` folder as a Vercel project.
-2. Framework preset: Other.
-3. No build command required for this static site.
-4. Deploy.
-5. Open frontend and set these in the Cloud Connection section:
+1. Go to your repository on GitHub.
+2. Open **Settings -> Pages**.
+3. Under **Source**, select **GitHub Actions**.
+4. Commit and push changes to `main` affecting `frontend/` (or manually run workflow `Deploy Frontend to GitHub Pages`).
+5. After the workflow succeeds, your frontend URL will be:
+   - `https://<github-username>.github.io/<repository-name>/`
+6. Open frontend and set these in the Cloud Connection section:
    - Render backend URL
    - User UUID (Supabase auth user id)
 

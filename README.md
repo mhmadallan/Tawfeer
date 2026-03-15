@@ -10,7 +10,7 @@ This project is split into two apps:
 ## Cloud Deployment Targets
 
 - Backend: Render (`render.yaml`)
-- Frontend: Vercel (`frontend/vercel.json`)
+- Frontend: GitHub Pages (via `.github/workflows/deploy-frontend-gh-pages.yml`)
 - Database + Storage: Supabase
 
 ## 1) Supabase setup
@@ -37,13 +37,21 @@ Optional:
 - `SUPABASE_RECEIPT_BUCKET` (default: `receipts`)
 - `DEFAULT_USER_ID` (test fallback only)
 
-## 3) Frontend deployment on Vercel
+## 3) Frontend deployment on GitHub Pages
 
-Deploy the `frontend/` folder to Vercel as a static app.
+Frontend auto-deploys from the `main` branch using GitHub Actions.
+
+1. In GitHub repository settings, open Pages.
+2. Set Source to **GitHub Actions**.
+3. Push changes to `main` that touch `frontend/` (or run the workflow manually).
+4. Your frontend will be served at:
+  - `https://<github-username>.github.io/<repository-name>/`
 
 After deployment, open the app and set in Cloud Connection:
 - Render backend URL
 - User UUID (Supabase auth user id)
+
+Render `FRONTEND_ORIGIN` should match your exact GitHub Pages URL.
 
 ## API endpoints
 
