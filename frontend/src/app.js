@@ -1,4 +1,4 @@
-const API_BASE_URL = window.API_BASE_URL || "http://localhost:4000";
+const FALLBACK_API_BASE_URL = window.API_BASE_URL || "https://your-backend.onrender.com";
 
 const receiptForm = document.getElementById("receiptForm");
 const receiptStatus = document.getElementById("receiptStatus");
@@ -14,11 +14,41 @@ const nonGrocerySpentEl = document.getElementById("nonGrocerySpent");
 const fromDateEl = document.getElementById("fromDate");
 const toDateEl = document.getElementById("toDate");
 const refreshSummaryBtn = document.getElementById("refreshSummary");
+const suggestionsList = document.getElementById("suggestionsList");
+const generateSuggestionsBtn = document.getElementById("generateSuggestions");
+
+const apiBaseUrlInput = document.getElementById("apiBaseUrl");
+const userIdInput = document.getElementById("userId");
+const saveSettingsBtn = document.getElementById("saveSettings");
+const settingsStatus = document.getElementById("settingsStatus");
+
+const settings = {
+  apiBaseUrl: localStorage.getItem("apiBaseUrl") || FALLBACK_API_BASE_URL,
+  userId: localStorage.getItem("userId") || ""
+};
+
+apiBaseUrlInput.value = settings.apiBaseUrl;
+userIdInput.value = settings.userId;
+
+const getApiBaseUrl = () => settings.apiBaseUrl;
+
+const getCommonHeaders = (extraHeaders = {}) => {
+  const headers = { ...extraHeaders };
+  if (settings.userId) {
+    headers["x-user-id"] = settings.userId;
+  }
+  return headers;
+};
 
 const formatMoney = (value) => `$${Number(value || 0).toFixed(2)}`;
 
 const fetchJson = async (url, options = {}) => {
-  const response = await fetch(url, options);
+  const mergedOptions = {
+    ...options,
+    headers: getCommonHeaders(options.headers || {})
+  };
+
+  const response = await fetch(url, mergedOptions);
   const payload = await response.json().catch(() => ({}));
 
   if (!response.ok) {
@@ -56,7 +86,7 @@ const loadSummary = async () => {
   if (toDateEl.value) params.append("to", toDateEl.value);
 
   const query = params.toString();
-  const data = await fetchJson(`${API_BASE_URL}/api/summary${query ? `?${query}` : ""}`);
+  const data = await fetchJson(`${getApiBaseUrl()}/api/summary${query ? `?${query}` : ""}`);
 
   totalSpentEl.textContent = formatMoney(data.total_spent);
   grocerySpentEl.textContent = formatMoney(data.grocery_spent);
@@ -64,7 +94,7 @@ const loadSummary = async () => {
 };
 
 const loadReceipts = async () => {
-  const receipts = await fetchJson(`${API_BASE_URL}/api/receipts`);
+  const receipts = await fetchJson(`${getApiBaseUrl()}/api/receipts`);
   receiptsList.innerHTML = "";
 
   if (receipts.length === 0) {
@@ -77,9 +107,45 @@ const loadReceipts = async () => {
     li.className = "rounded-lg border border-slate-200 p-3";
     li.innerHTML = `
       <div class="font-medium">${receipt.store_name}</div>
-      <div class="text-slate-600">${receipt.purchased_at} • Grocery: ${formatMoney(receipt.grocery_amount)} • Total: ${formatMoney(receipt.total_amount)}</div>
+      <div class="text-slate-600">${receipt.purchased_at} | Grocery: ${formatMoney(receipt.grocery_amount)} | Total: ${formatMoney(receipt.total_amount)}</div>
     `;
     receiptsList.appendChild(li);
+  }
+};
+
+const renderSuggestions = (suggestions = []) => {
+  suggestionsList.innerHTML = "";
+
+  if (suggestions.length === 0) {
+    suggestionsList.innerHTML = `<li class="text-slate-500">No suggestions yet. Click Generate Suggestions.</li>`;
+    return;
+  }
+
+  for (const suggestion of suggestions) {
+    const li = document.createElement("li");
+    li.className = "rounded-lg border border-slate-200 p-3";
+    li.innerHTML = `
+      <div class="font-medium">${suggestion.title}</div>
+      <div class="text-slate-600">${suggestion.message}</div>
+      <div class="mt-1 text-sm font-semibold text-brand-700">Estimated savings: ${formatMoney(suggestion.estimated_savings)}</div>
+    `;
+    suggestionsList.appendChild(li);
+  }
+};
+
+const loadSuggestions = async () => {
+  const result = await fetchJson(`${getApiBaseUrl()}/api/suggestions/generate`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({})
+  });
+
+  renderSuggestions(result.items || []);
+};
+
+const ensureCloudSettings = () => {
+  if (!settings.apiBaseUrl || !settings.userId) {
+    throw new Error("Please save cloud settings first (Render backend URL and User UUID).");
   }
 };
 
@@ -88,6 +154,8 @@ receiptForm.addEventListener("submit", async (event) => {
   receiptStatus.textContent = "Analyzing bill...";
 
   try {
+    ensureCloudSettings();
+
     const billImage = document.getElementById("billImage").files[0];
     if (!billImage) {
       throw new Error("Please choose a bill image.");
@@ -102,8 +170,9 @@ receiptForm.addEventListener("submit", async (event) => {
     if (storeName) formData.append("storeName", storeName);
     if (purchaseDate) formData.append("purchaseDate", purchaseDate);
 
-    const result = await fetchJson(`${API_BASE_URL}/api/receipts/analyze`, {
+    const result = await fetchJson(`${getApiBaseUrl()}/api/receipts/analyze`, {
       method: "POST",
+      headers: getCommonHeaders(),
       body: formData
     });
 
@@ -122,6 +191,8 @@ manualItemForm.addEventListener("submit", async (event) => {
   manualStatus.textContent = "Saving item...";
 
   try {
+    ensureCloudSettings();
+
     const payload = {
       name: document.getElementById("itemName").value.trim(),
       price: Number(document.getElementById("itemPrice").value),
@@ -131,7 +202,7 @@ manualItemForm.addEventListener("submit", async (event) => {
       purchaseDate: document.getElementById("manualDate").value || undefined
     };
 
-    await fetchJson(`${API_BASE_URL}/api/items/manual`, {
+    await fetchJson(`${getApiBaseUrl()}/api/items/manual`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(payload)
@@ -147,14 +218,41 @@ manualItemForm.addEventListener("submit", async (event) => {
 
 refreshSummaryBtn.addEventListener("click", async () => {
   try {
+    ensureCloudSettings();
     await loadSummary();
   } catch (error) {
     alert(error.message);
   }
 });
 
+generateSuggestionsBtn.addEventListener("click", async () => {
+  try {
+    ensureCloudSettings();
+    await loadSuggestions();
+  } catch (error) {
+    alert(error.message);
+  }
+});
+
+saveSettingsBtn.addEventListener("click", () => {
+  settings.apiBaseUrl = apiBaseUrlInput.value.trim().replace(/\/$/, "");
+  settings.userId = userIdInput.value.trim();
+
+  localStorage.setItem("apiBaseUrl", settings.apiBaseUrl);
+  localStorage.setItem("userId", settings.userId);
+
+  settingsStatus.textContent = "Cloud settings saved.";
+});
+
 const init = async () => {
   renderAnalysisItems([]);
+  renderSuggestions([]);
+
+  if (!settings.userId) {
+    settingsStatus.textContent = "Add and save your cloud settings to start.";
+    return;
+  }
+
   await Promise.all([loadSummary(), loadReceipts()]);
 };
 
